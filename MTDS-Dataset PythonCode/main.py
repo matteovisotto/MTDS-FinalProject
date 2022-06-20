@@ -7,6 +7,7 @@ import xlsxwriter
 import numpy as np
 
 fake_location = ["A", "B", "C", "D", "E"]
+fake_location_n = ["S", "0", "1", "2", "3"]
 
 
 def write_files(df, path):
@@ -34,9 +35,9 @@ def generate_fake_data(n):
     for i in range(n):
         temperature.append(round(rd.uniform(10.02, 37.50), 2))
         humidity.append(round(rd.uniform(0, 100), 2))
-        d = random_date("01/04/2022 00:00", "31/08/2022 23:59", rd.random())
+        d = random_date("01/04/2020 00:00", "31/08/2022 23:59", rd.random())
         date_time.append(d)
-        sensor_position.append(fake_location[rd.randint(0, 4)])
+        sensor_position.append(fake_location[rd.randint(0, 4)]+"."+fake_location[rd.randint(0, 4)]+"."+fake_location_n[rd.randint(0, 4)]+"."+fake_location[rd.randint(0, 4)])
     return temperature, humidity, date_time, sensor_position
 
 
