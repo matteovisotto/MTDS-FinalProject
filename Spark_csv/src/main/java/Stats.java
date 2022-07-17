@@ -70,14 +70,15 @@ public class Stats {
 
         final Dataset<Row> setUpHour = dataset
                 .withColumn("hour", hour(col("dateTime")))
-                .withColumn("day", to_date(col("dateTime")));
+                .withColumn("day", to_date(col("dateTime")))
+                .withColumn("week", weekofyear(col("dateTime")));
 
         setUpHour.cache();
 
-        setUpHour.show();
+        //setUpHour.show();
 
         //Hourly moving average - Room
-        final Dataset<Row> movingAverageTemperature = setUpHour
+        final Dataset<Row> movingAverageTemperatureAndHumidityHour = setUpHour
                 .groupBy("hour", "day")
                 .agg(
                         avg("temperature").as("avg_temp"),
@@ -85,7 +86,7 @@ public class Stats {
                 )
                 .orderBy("day", "hour");
 
-        movingAverageTemperature.show();
+        movingAverageTemperatureAndHumidityHour.show();
 
 
 
@@ -102,7 +103,15 @@ public class Stats {
 
 
         //Daily moving average - Room
+        final Dataset<Row> movingAverageTemperatureAndHumidityDaily = setUpHour
+                .groupBy("week")
+                .agg(
+                        avg("temperature").as("avg_temp"),
+                        avg("humidity").as("avg_hum")
+                )
+                .orderBy("week");
 
+        movingAverageTemperatureAndHumidityDaily.show();
 
 
         //Daily moving average - Building
@@ -118,7 +127,15 @@ public class Stats {
 
 
         //Weekly moving average - Room
+        final Dataset<Row> movingAverageTemperatureAndHumidityWeekly = setUpHour
+                .groupBy("week")
+                .agg(
+                        avg("temperature").as("avg_temp"),
+                        avg("humidity").as("avg_hum")
+                )
+                .orderBy("week");
 
+        movingAverageTemperatureAndHumidityWeekly.show();
 
 
         //Weekly moving average - Building Level
@@ -140,8 +157,24 @@ public class Stats {
         //Day temperature -> average temperature between 8am and 8pm
         //Night temperature -> average temperature between 8pm and 8am
         //Daily night-day temperature difference - Room
+        final Dataset<Row> setUpDayAndNight = dataset
+                .withColumn("day", to_date(col("dateTime")))
+                .withColumn("night", hour(col("dateTime")).cast(DataTypes.IntegerType).lt(8).or(hour(col("dateTime")).cast(DataTypes.IntegerType).geq(20)))
+                .withColumn("daily", hour(col("dateTime")).cast(DataTypes.IntegerType).lt(20).and(hour(col("dateTime")).cast(DataTypes.IntegerType).geq(8)));
+
+        setUpDayAndNight.cache();
 
 
+        final Dataset<Row> meanDaily = setUpDayAndNight
+                .groupBy("daily", "day")
+                .agg(
+                        avg("temperature").as("avg_temp"),
+                        avg("humidity").as("avg_hum")
+                )
+                .orderBy("day");
+
+        meanDaily.cache();
+        meanDaily.show();
 
         //Daily night-day temperature difference - Building Level
 
