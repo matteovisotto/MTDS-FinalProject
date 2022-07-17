@@ -2,6 +2,7 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.DataTypes;
+import org.apache.spark.sql.types.DateType;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 import utils.LogUtils;
@@ -9,7 +10,7 @@ import utils.LogUtils;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.apache.spark.sql.functions.max;
+import static org.apache.spark.sql.functions.*;
 
 /**
  * Bank example
@@ -25,7 +26,7 @@ import static org.apache.spark.sql.functions.max;
  * The code exemplifies the use of SQL primitives.  By setting the useCache variable,
  * one can see the differences when enabling/disabling cache.
  */
-public class Bank {
+public class Stats {
     public static void main(String[] args) {
         LogUtils.setLogLevel();
 
@@ -41,44 +42,50 @@ public class Bank {
 
         final List<StructField> mySchemaFields = new ArrayList<>();
         mySchemaFields.add(DataTypes.createStructField("location", DataTypes.StringType, true));
-        mySchemaFields.add(DataTypes.createStructField("dateTime", DataTypes.DateType, true));
+        mySchemaFields.add(DataTypes.createStructField("dateTime", DataTypes.TimestampType, true));
         mySchemaFields.add(DataTypes.createStructField("temperature", DataTypes.FloatType, true));
         mySchemaFields.add(DataTypes.createStructField("humidity", DataTypes.FloatType, true));
         final StructType mySchema = DataTypes.createStructType(mySchemaFields);
 
-        final Dataset<Row> dataset = spark
+        Dataset<Row> dataset = spark
                 .read()
                 .option("header", "false")
                 .option("delimiter", ";")
+                .option("dateFormat","dd/MM/yyyy HH:mm:ss")
                 .schema(mySchema)
-                .csv(filePath + "files/dataset.csv");
+                .csv(filePath + "../DataOut/dataset.csv");
+
+        //dataset = dataset.withColumn("temperature", col("temperature").cast(DataTypes.IntegerType));
+
+        //dataset = dataset.withColumn("temperature", col("temperature").cast(DataTypes.IntegerType));
+
+        //dataset.withColumn("hour", hour(col("dateTime")));
 
         // Used in two different queries
         dataset.cache();
 
-        //Hourly moving average - Room
-        final Dataset<Row> movingAverageTemperature = dataset
-                .groupBy("location")
-                .avg("temperature")
-                .as("sumTemperature");
+        //dataset.show();
 
-        // Used in two different queries
-        movingAverageTemperature.cache();
+        //final Dataset<Row> setUpHour = dataset.withColumn("hour", trunc(col("dateTime"), "HH"));
+
+        final Dataset<Row> setUpHour = dataset
+                .withColumn("hour", hour(col("dateTime")))
+                .withColumn("day", to_date(col("dateTime")));
+
+        setUpHour.cache();
+
+        setUpHour.show();
+
+        //Hourly moving average - Room
+        final Dataset<Row> movingAverageTemperature = setUpHour
+                .groupBy("hour", "day")
+                .agg(
+                        avg("temperature").as("avg_temp"),
+                        avg("humidity").as("avg_hum")
+                )
+                .orderBy("day", "hour");
 
         movingAverageTemperature.show();
-
-        /*final Dataset<Row> sumHumidity = dataset
-                .groupBy("location")
-                .sum("humidity")
-                .as("sumHumidity");
-                //.select("location", "sum(humidity)");
-
-        // Used in two different queries
-        if (useCache) {
-            sumHumidity.cache();
-        }
-
-        sumHumidity.show();*/
 
 
 

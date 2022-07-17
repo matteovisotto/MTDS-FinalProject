@@ -11,7 +11,7 @@ fake_location_n = ["S", "0", "1", "2", "3"]
 
 
 def write_files(df, path):
-    df.to_csv(path + "dataset.csv", sep=";", decimal=",", index=False)
+    df.to_csv(path + "dataset.csv", sep=";", decimal=".", index=False)
     df.to_excel(path + 'dataset.xlsx', engine='xlsxwriter', index=False)
 
 
