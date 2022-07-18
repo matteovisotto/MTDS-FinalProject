@@ -1,4 +1,4 @@
-package utils;
+package it.polimi.mtds.utils;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;

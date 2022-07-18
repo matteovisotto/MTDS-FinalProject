@@ -1,11 +1,12 @@
+package it.polimi.mtds;
+
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.DataTypes;
-import org.apache.spark.sql.types.DateType;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
-import utils.LogUtils;
+import it.polimi.mtds.utils.LogUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +27,7 @@ public class Stats {
 
         final String master = args.length > 0 ? args[0] : "local[4]";
         final String filePath = args.length > 1 ? args[1] : "./";
-        final String appName = "Stats";
+        final String appName = "it.polimi.mtds.Stats";
 
         final SparkSession spark = SparkSession
                 .builder()
