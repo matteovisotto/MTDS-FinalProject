@@ -51,6 +51,12 @@ public class Stats {
                 .csv(filePath + "../DataOut/dataset.csv");
 
         // Used in two different queries
+        dataset.show();
+        dataset = dataset.withColumn("Loc1",split(col("location"),"[.]").getItem(0))
+                .withColumn("Loc2",split(col("location"),"[.]").getItem(1))
+                .withColumn("Loc3",split(col("location"),"[.]").getItem(2))
+                .withColumn("loc4",split(col("location"),"[.]").getItem(3));
+        dataset.show();
         dataset.cache();
 
         final Dataset<Row> setUpHour = dataset
