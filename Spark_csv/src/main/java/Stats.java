@@ -13,18 +13,12 @@ import java.util.List;
 import static org.apache.spark.sql.functions.*;
 
 /**
- * Bank example
- *
- * Input: csv files with list of deposits and withdrawals, having the following
- * schema ("person: String, account: String, amount: Int)
+ * Input: csv files containing sensor readings
+ * schema ("location: String, dateTime: Timestamp, temperature: Float, humidity: Float)
  *
  * Queries
- * Q1. Print the total amount of withdrawals for each person.
- * Q2. Print the person with the maximum total amount of withdrawals
- * Q3. Print all the accounts with a negative balance
+ * Q1.
  *
- * The code exemplifies the use of SQL primitives.  By setting the useCache variable,
- * one can see the differences when enabling/disabling cache.
  */
 public class Stats {
     public static void main(String[] args) {
