@@ -3,6 +3,8 @@ package it.polimi.mtds;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.expressions.Window;
+import org.apache.spark.sql.expressions.WindowSpec;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
@@ -46,41 +48,47 @@ public class Stats {
                 .schema(mySchema)
                 .csv(filePath + "../DataOut/dataset.csv");
 
+        WindowSpec w = (Window.partitionBy(col("room")).orderBy(col("dateTime").cast(DataTypes.LongType)).rangeBetween(-7, 0));
+
         dataset = dataset.withColumn("neighborhoods",split(col("location"),"[.]").getItem(0))
                 .withColumn("building",split(col("location"),"[.]").getItem(1))
                 .withColumn("floor",split(col("location"),"[.]").getItem(2))
                 .withColumn("room",split(col("location"),"[.]").getItem(3))
-                .withColumnRenamed("location", "fullLocation");
+                .withColumnRenamed("location", "fullLocation")
+                .withColumn("hour", hour(col("dateTime")))
+                .withColumn("day", to_date(col("dateTime")))
+                .withColumn("week", weekofyear(col("dateTime")))
+                .withColumn("month", month(col("dateTime")))
+                .withColumn("year", year(col("dateTime")))
+                .withColumn("night", hour(col("dateTime")).cast(DataTypes.IntegerType).lt(8).or(hour(col("dateTime")).cast(DataTypes.IntegerType).geq(20)))
+                .withColumn("daily", hour(col("dateTime")).cast(DataTypes.IntegerType).lt(20).and(hour(col("dateTime")).cast(DataTypes.IntegerType).geq(8)))
+                .withColumn("rolling_average", avg("temperature").over(w));
         dataset.show();
         dataset.cache();
 
-        final Dataset<Row> setUpHour = dataset
-                .withColumn("hour", hour(col("dateTime")))
-                .withColumn("day", to_date(col("dateTime")))
-                .withColumn("week", weekofyear(col("dateTime")));
-
-        setUpHour.cache();
-
         //Hourly moving average - Room
-        final Dataset<Row> movingAverageTemperatureAndHumidityHour = setUpHour
-                .groupBy("hour", "day")
+        final Dataset<Row> movingAverageTemperatureAndHumidityHour = dataset
+                .groupBy("hour", "day", "room")
                 .agg(
                         avg("temperature").as("avg_temp"),
                         avg("humidity").as("avg_hum")
                 )
                 .orderBy("day", "hour");
 
+        //movingAverageTemperatureAndHumidityHour.withColumn("rolling_average", avg("dollars").over(w));
+
         movingAverageTemperatureAndHumidityHour.show();
         //SU QUESTA MANCA ROOM MENTRE SU QUELLA SOTTO OK BUILDING MA NON RAGGRUPPATO PER GIORNO.
 
 
         //Hourly moving average - Building
-        final Dataset<Row> hourlyBuilding = setUpHour.groupBy("building", "hour")
+        final Dataset<Row> hourlyBuilding = dataset
+                .groupBy("hour", "day", "building")
                 .agg(
                         avg("temperature").as("avg_temp"),
                         avg("humidity").as("avg_hum")
                 )
-                .orderBy("hour");
+                .orderBy("day","hour");
         hourlyBuilding.show();
 
         //Hourly moving average - Building Level
@@ -92,7 +100,7 @@ public class Stats {
 
 
         //Daily moving average - Room
-        final Dataset<Row> movingAverageTemperatureAndHumidityDaily = setUpHour
+        final Dataset<Row> movingAverageTemperatureAndHumidityDaily = dataset
                 .groupBy("week")
                 .agg(
                         avg("temperature").as("avg_temp"),
@@ -116,7 +124,7 @@ public class Stats {
 
 
         //Weekly moving average - Room
-        final Dataset<Row> movingAverageTemperatureAndHumidityWeekly = setUpHour
+        final Dataset<Row> movingAverageTemperatureAndHumidityWeekly = dataset
                 .groupBy("week")
                 .agg(
                         avg("temperature").as("avg_temp"),
@@ -146,21 +154,18 @@ public class Stats {
         //Day temperature -> average temperature between 8am and 8pm
         //Night temperature -> average temperature between 8pm and 8am
         //Daily night-day temperature difference - Room
-        final Dataset<Row> setUpDayAndNight = dataset
-                .withColumn("day", to_date(col("dateTime")))
-                .withColumn("night", hour(col("dateTime")).cast(DataTypes.IntegerType).lt(8).or(hour(col("dateTime")).cast(DataTypes.IntegerType).geq(20)))
-                .withColumn("daily", hour(col("dateTime")).cast(DataTypes.IntegerType).lt(20).and(hour(col("dateTime")).cast(DataTypes.IntegerType).geq(8)));
-
-        setUpDayAndNight.cache();
-
-
-        final Dataset<Row> meanDaily = setUpDayAndNight
-                .groupBy("daily", "day")
+        final Dataset<Row> meanDaily = dataset
+                .groupBy("daily", "day", "room")
                 .agg(
                         avg("temperature").as("avg_temp"),
                         avg("humidity").as("avg_hum")
                 )
                 .orderBy("day");
+                /*.rdd()
+                .zipWithIndex()
+                .foreach((a,b) -> {
+
+                });*/
 
         meanDaily.cache();
         meanDaily.show();
