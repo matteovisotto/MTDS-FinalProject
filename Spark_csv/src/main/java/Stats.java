@@ -55,18 +55,8 @@ public class Stats {
                 .schema(mySchema)
                 .csv(filePath + "../DataOut/dataset.csv");
 
-        //dataset = dataset.withColumn("temperature", col("temperature").cast(DataTypes.IntegerType));
-
-        //dataset = dataset.withColumn("temperature", col("temperature").cast(DataTypes.IntegerType));
-
-        //dataset.withColumn("hour", hour(col("dateTime")));
-
         // Used in two different queries
         dataset.cache();
-
-        //dataset.show();
-
-        //final Dataset<Row> setUpHour = dataset.withColumn("hour", trunc(col("dateTime"), "HH"));
 
         final Dataset<Row> setUpHour = dataset
                 .withColumn("hour", hour(col("dateTime")))
