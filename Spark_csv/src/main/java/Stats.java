@@ -49,7 +49,7 @@ public class Stats {
 
         Dataset<Row> dataset = spark
                 .read()
-                .option("header", "false")
+                .option("header", "true")
                 .option("delimiter", ";")
                 .option("dateFormat","dd/MM/yyyy HH:mm:ss")
                 .schema(mySchema)
