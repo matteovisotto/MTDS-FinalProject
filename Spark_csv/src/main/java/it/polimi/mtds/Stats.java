@@ -16,10 +16,6 @@ import static org.apache.spark.sql.functions.*;
 /**
  * Input: csv files containing sensor readings
  * schema ("location: String, dateTime: Timestamp, temperature: Float, humidity: Float)
- *
- * Queries
- * Q1.
- *
  */
 public class Stats {
     public static void main(String[] args) {
@@ -50,12 +46,11 @@ public class Stats {
                 .schema(mySchema)
                 .csv(filePath + "../DataOut/dataset.csv");
 
-        // Used in two different queries
-        dataset.show();
-        dataset = dataset.withColumn("Loc1",split(col("location"),"[.]").getItem(0))
-                .withColumn("Loc2",split(col("location"),"[.]").getItem(1))
-                .withColumn("Loc3",split(col("location"),"[.]").getItem(2))
-                .withColumn("loc4",split(col("location"),"[.]").getItem(3));
+        dataset = dataset.withColumn("neighborhoods",split(col("location"),"[.]").getItem(0))
+                .withColumn("building",split(col("location"),"[.]").getItem(1))
+                .withColumn("floor",split(col("location"),"[.]").getItem(2))
+                .withColumn("room",split(col("location"),"[.]").getItem(3))
+                .withColumnRenamed("location", "fullLocation");
         dataset.show();
         dataset.cache();
 
@@ -65,8 +60,6 @@ public class Stats {
                 .withColumn("week", weekofyear(col("dateTime")));
 
         setUpHour.cache();
-
-        //setUpHour.show();
 
         //Hourly moving average - Room
         final Dataset<Row> movingAverageTemperatureAndHumidityHour = setUpHour
@@ -78,12 +71,17 @@ public class Stats {
                 .orderBy("day", "hour");
 
         movingAverageTemperatureAndHumidityHour.show();
-
+        //SU QUESTA MANCA ROOM MENTRE SU QUELLA SOTTO OK BUILDING MA NON RAGGRUPPATO PER GIORNO.
 
 
         //Hourly moving average - Building
-
-
+        final Dataset<Row> hourlyBuilding = setUpHour.groupBy("building", "hour")
+                .agg(
+                        avg("temperature").as("avg_temp"),
+                        avg("humidity").as("avg_hum")
+                )
+                .orderBy("hour");
+        hourlyBuilding.show();
 
         //Hourly moving average - Building Level
 
