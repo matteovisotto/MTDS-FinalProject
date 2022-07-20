@@ -1,16 +1,17 @@
 package it.polimi.mtds;
 
+import org.apache.spark.SparkContext;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SaveMode;
 import org.apache.spark.sql.SparkSession;
-import org.apache.spark.sql.expressions.Window;
-import org.apache.spark.sql.expressions.WindowSpec;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 import it.polimi.mtds.utils.LogUtils;
+import org.apache.hadoop.fs.*;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -76,30 +77,30 @@ public class Stats {
 
         movingAverageTemperatureAndHumidityHour.cache();
 
-        /*movingAverageTemperatureAndHumidityHour
-                .write()
-                .mode(SaveMode.Overwrite)
-                .option("header", true)
-                .option("delimiter", ";")
-                .option("dateFormat","dd/MM/yyyy HH:mm:ss")
-                .csv("../Stats.csv");*/
-
         movingAverageTemperatureAndHumidityHour.createOrReplaceTempView("hourMovingAverage");
 
-        final Dataset<Row> movingAverageTemperatureAndHumidityHourRoom = spark.sql("SELECT fullRoomLocation, dateTime, temperature, avg(temperature) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 HOUR PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 HOUR PRECEDING AND CURRENT ROW) AS avg_hum FROM hourMovingAverage");
+        Dataset<Row> movingAverageTemperatureAndHumidityHourRoom = spark.sql("SELECT fullRoomLocation, dateTime, avg(temperature) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 HOUR PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 HOUR PRECEDING AND CURRENT ROW) AS avg_hum FROM hourMovingAverage");
+        movingAverageTemperatureAndHumidityHourRoom = movingAverageTemperatureAndHumidityHourRoom.withColumn("avg_temp", bround(col("avg_temp"), 2)).withColumn("avg_hum", bround(col("avg_hum"), 2));
         movingAverageTemperatureAndHumidityHourRoom.show();
+        writeToCsv(movingAverageTemperatureAndHumidityHourRoom, "movingAverageTemperatureAndHumidityHourRoom");
 
         //Hourly moving average - Building Level
-        final Dataset<Row> movingAverageTemperatureAndHumidityHourFloor = spark.sql("SELECT fullFloorLocation, dateTime, avg(temperature) OVER (PARTITION BY fullFloorLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 HOUR PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 HOUR PRECEDING AND CURRENT ROW) AS avg_hum FROM hourMovingAverage");
+        Dataset<Row> movingAverageTemperatureAndHumidityHourFloor = spark.sql("SELECT fullFloorLocation, dateTime, avg(temperature) OVER (PARTITION BY fullFloorLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 HOUR PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 HOUR PRECEDING AND CURRENT ROW) AS avg_hum FROM hourMovingAverage");
+        movingAverageTemperatureAndHumidityHourFloor = movingAverageTemperatureAndHumidityHourFloor.withColumn("avg_temp", bround(col("avg_temp"), 2)).withColumn("avg_hum", bround(col("avg_hum"), 2));
         movingAverageTemperatureAndHumidityHourFloor.show();
+        writeToCsv(movingAverageTemperatureAndHumidityHourFloor, "movingAverageTemperatureAndHumidityHourFloor");
 
         //Hourly moving average - Building
-        final Dataset<Row> movingAverageTemperatureAndHumidityHourBuilding = spark.sql("SELECT fullBuildingLocation, dateTime, avg(temperature) OVER (PARTITION BY fullBuildingLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 HOUR PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 HOUR PRECEDING AND CURRENT ROW) AS avg_hum FROM hourMovingAverage");
+        Dataset<Row> movingAverageTemperatureAndHumidityHourBuilding = spark.sql("SELECT fullBuildingLocation, dateTime, avg(temperature) OVER (PARTITION BY fullBuildingLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 HOUR PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 HOUR PRECEDING AND CURRENT ROW) AS avg_hum FROM hourMovingAverage");
+        movingAverageTemperatureAndHumidityHourBuilding = movingAverageTemperatureAndHumidityHourBuilding.withColumn("avg_temp", bround(col("avg_temp"), 2)).withColumn("avg_hum", bround(col("avg_hum"), 2));
         movingAverageTemperatureAndHumidityHourBuilding.show();
+        writeToCsv(movingAverageTemperatureAndHumidityHourBuilding, "movingAverageTemperatureAndHumidityHourBuilding");
 
         //Hourly moving average - Neighborhood-scale
-        final Dataset<Row> movingAverageTemperatureAndHumidityHourNeighborhood = spark.sql("SELECT neighborhood, dateTime, avg(temperature) OVER (PARTITION BY neighborhood ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 HOUR PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 HOUR PRECEDING AND CURRENT ROW) AS avg_hum FROM hourMovingAverage");
+        Dataset<Row> movingAverageTemperatureAndHumidityHourNeighborhood = spark.sql("SELECT neighborhood, dateTime, avg(temperature) OVER (PARTITION BY neighborhood ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 HOUR PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 HOUR PRECEDING AND CURRENT ROW) AS avg_hum FROM hourMovingAverage");
+        movingAverageTemperatureAndHumidityHourNeighborhood = movingAverageTemperatureAndHumidityHourNeighborhood.withColumn("avg_temp", bround(col("avg_temp"), 2)).withColumn("avg_hum", bround(col("avg_hum"), 2));
         movingAverageTemperatureAndHumidityHourNeighborhood.show();
+        writeToCsv(movingAverageTemperatureAndHumidityHourNeighborhood, "movingAverageTemperatureAndHumidityHourNeighborhood");
 
         //No more used, so removed from cache
         movingAverageTemperatureAndHumidityHour.unpersist();
@@ -113,20 +114,28 @@ public class Stats {
         movingAverageTemperatureAndHumidityHour.cache();
         movingAverageTemperatureAndHumidityDaily.createOrReplaceTempView("dailyMovingAverage");
 
-        final Dataset<Row> movingAverageTemperatureAndHumidityDailyRoom = spark.sql("SELECT fullRoomLocation, dateTime, avg(temperature) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_hum FROM dailyMovingAverage");
+        Dataset<Row> movingAverageTemperatureAndHumidityDailyRoom = spark.sql("SELECT fullRoomLocation, dateTime, avg(temperature) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_hum FROM dailyMovingAverage");
+        movingAverageTemperatureAndHumidityDailyRoom = movingAverageTemperatureAndHumidityDailyRoom.withColumn("avg_temp", bround(col("avg_temp"), 2)).withColumn("avg_hum", bround(col("avg_hum"), 2));
         movingAverageTemperatureAndHumidityDailyRoom.show();
+        writeToCsv(movingAverageTemperatureAndHumidityDailyRoom, "movingAverageTemperatureAndHumidityDailyRoom");
 
         //Daily moving average - Building Level
-        final Dataset<Row> movingAverageTemperatureAndHumidityDailyFloor = spark.sql("SELECT fullFloorLocation, dateTime, avg(temperature) OVER (PARTITION BY fullFloorLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_hum FROM dailyMovingAverage");
+        Dataset<Row> movingAverageTemperatureAndHumidityDailyFloor = spark.sql("SELECT fullFloorLocation, dateTime, avg(temperature) OVER (PARTITION BY fullFloorLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_hum FROM dailyMovingAverage");
+        movingAverageTemperatureAndHumidityDailyFloor = movingAverageTemperatureAndHumidityDailyFloor.withColumn("avg_temp", bround(col("avg_temp"), 2)).withColumn("avg_hum", bround(col("avg_hum"), 2));
         movingAverageTemperatureAndHumidityDailyFloor.show();
+        writeToCsv(movingAverageTemperatureAndHumidityDailyFloor, "movingAverageTemperatureAndHumidityDailyFloor");
 
         //Daily moving average - Building
-        final Dataset<Row> movingAverageTemperatureAndHumidityDailyBuilding = spark.sql("SELECT fullBuildingLocation, dateTime, avg(temperature) OVER (PARTITION BY fullBuildingLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_hum FROM dailyMovingAverage");
+        Dataset<Row> movingAverageTemperatureAndHumidityDailyBuilding = spark.sql("SELECT fullBuildingLocation, dateTime, avg(temperature) OVER (PARTITION BY fullBuildingLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_hum FROM dailyMovingAverage");
+        movingAverageTemperatureAndHumidityDailyBuilding = movingAverageTemperatureAndHumidityDailyBuilding.withColumn("avg_temp", bround(col("avg_temp"), 2)).withColumn("avg_hum", bround(col("avg_hum"), 2));
         movingAverageTemperatureAndHumidityDailyBuilding.show();
+        writeToCsv(movingAverageTemperatureAndHumidityDailyBuilding, "movingAverageTemperatureAndHumidityDailyBuilding");
 
         //Daily moving average - Neighborhood-scale
-        final Dataset<Row> movingAverageTemperatureAndHumidityDailyNeighborhood = spark.sql("SELECT neighborhood, dateTime, avg(temperature) OVER (PARTITION BY neighborhood ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_hum FROM dailyMovingAverage");
+        Dataset<Row> movingAverageTemperatureAndHumidityDailyNeighborhood = spark.sql("SELECT neighborhood, dateTime, avg(temperature) OVER (PARTITION BY neighborhood ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_hum FROM dailyMovingAverage");
+        movingAverageTemperatureAndHumidityDailyNeighborhood = movingAverageTemperatureAndHumidityDailyNeighborhood.withColumn("avg_temp", bround(col("avg_temp"), 2)).withColumn("avg_hum", bround(col("avg_hum"), 2));
         movingAverageTemperatureAndHumidityDailyNeighborhood.show();
+        writeToCsv(movingAverageTemperatureAndHumidityDailyNeighborhood, "movingAverageTemperatureAndHumidityDailyNeighborhood");
 
         //No more used, so removed from cache
         movingAverageTemperatureAndHumidityDaily.unpersist();
@@ -140,20 +149,28 @@ public class Stats {
         movingAverageTemperatureAndHumidityWeekly.cache();
         movingAverageTemperatureAndHumidityWeekly.createOrReplaceTempView("weeklyMovingAverage");
 
-        final Dataset<Row> movingAverageTemperatureAndHumidityWeeklyRoom = spark.sql("SELECT fullRoomLocation, dateTime, temperature, avg(temperature) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW) AS avg_hum FROM weeklyMovingAverage");
+        Dataset<Row> movingAverageTemperatureAndHumidityWeeklyRoom = spark.sql("SELECT fullRoomLocation, dateTime, avg(temperature) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW) AS avg_hum FROM weeklyMovingAverage");
+        movingAverageTemperatureAndHumidityWeeklyRoom = movingAverageTemperatureAndHumidityWeeklyRoom.withColumn("avg_temp", bround(col("avg_temp"), 2)).withColumn("avg_hum", bround(col("avg_hum"), 2));
         movingAverageTemperatureAndHumidityWeeklyRoom.show();
+        writeToCsv(movingAverageTemperatureAndHumidityWeeklyRoom, "movingAverageTemperatureAndHumidityWeeklyRoom");
 
         //Weekly moving average - Building Level
-        final Dataset<Row> movingAverageTemperatureAndHumidityWeeklyFloor = spark.sql("SELECT fullFloorLocation, dateTime, avg(temperature) OVER (PARTITION BY fullFloorLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW) AS avg_hum FROM weeklyMovingAverage");
+        Dataset<Row> movingAverageTemperatureAndHumidityWeeklyFloor = spark.sql("SELECT fullFloorLocation, dateTime, avg(temperature) OVER (PARTITION BY fullFloorLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW) AS avg_hum FROM weeklyMovingAverage");
+        movingAverageTemperatureAndHumidityWeeklyFloor = movingAverageTemperatureAndHumidityWeeklyFloor.withColumn("avg_temp", bround(col("avg_temp"), 2)).withColumn("avg_hum", bround(col("avg_hum"), 2));
         movingAverageTemperatureAndHumidityWeeklyFloor.show();
+        writeToCsv(movingAverageTemperatureAndHumidityWeeklyFloor, "movingAverageTemperatureAndHumidityWeeklyFloor");
 
         //Weekly moving average - Building
-        final Dataset<Row> movingAverageTemperatureAndHumidityWeeklyBuilding = spark.sql("SELECT fullBuildingLocation, dateTime, avg(temperature) OVER (PARTITION BY fullBuildingLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW) AS avg_hum FROM weeklyMovingAverage");
+        Dataset<Row> movingAverageTemperatureAndHumidityWeeklyBuilding = spark.sql("SELECT fullBuildingLocation, dateTime, avg(temperature) OVER (PARTITION BY fullBuildingLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW) AS avg_hum FROM weeklyMovingAverage");
+        movingAverageTemperatureAndHumidityWeeklyBuilding = movingAverageTemperatureAndHumidityWeeklyBuilding.withColumn("avg_temp", bround(col("avg_temp"), 2)).withColumn("avg_hum", bround(col("avg_hum"), 2));
         movingAverageTemperatureAndHumidityWeeklyBuilding.show();
+        writeToCsv(movingAverageTemperatureAndHumidityWeeklyBuilding, "movingAverageTemperatureAndHumidityWeeklyBuilding");
 
         //Weekly moving average - Neighborhood-scale
-        final Dataset<Row> movingAverageTemperatureAndHumidityWeeklyNeighborhood = spark.sql("SELECT neighborhood, dateTime, avg(temperature) OVER (PARTITION BY neighborhood ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW) AS avg_hum FROM weeklyMovingAverage");
+        Dataset<Row> movingAverageTemperatureAndHumidityWeeklyNeighborhood = spark.sql("SELECT neighborhood, dateTime, avg(temperature) OVER (PARTITION BY neighborhood ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 7 DAY PRECEDING AND CURRENT ROW) AS avg_hum FROM weeklyMovingAverage");
+        movingAverageTemperatureAndHumidityWeeklyNeighborhood = movingAverageTemperatureAndHumidityWeeklyNeighborhood.withColumn("avg_temp", bround(col("avg_temp"), 2)).withColumn("avg_hum", bround(col("avg_hum"), 2));
         movingAverageTemperatureAndHumidityWeeklyNeighborhood.show();
+        writeToCsv(movingAverageTemperatureAndHumidityWeeklyNeighborhood, "movingAverageTemperatureAndHumidityWeeklyNeighborhood");
 
         //No more used, so removed from cache
         movingAverageTemperatureAndHumidityWeekly.unpersist();
@@ -172,8 +189,20 @@ public class Stats {
                 .orderBy("day");
         meanDailyRoom.cache();
 
-        final Dataset<Row> dailyRoom = meanDailyRoom.filter(col("daily").equalTo(true)).withColumnRenamed("avg_temp", "day_temp").withColumnRenamed("avg_hum", "day_hum");
-        final Dataset<Row> nightRoom = meanDailyRoom.filter(col("daily").equalTo(false)).withColumnRenamed("fullRoomLocation", "fl").withColumnRenamed("day", "d").withColumnRenamed("avg_temp", "night_temp").withColumnRenamed("avg_hum", "night_hum");
+        final Dataset<Row> dailyRoom = meanDailyRoom
+                .filter(col("daily").equalTo(true))
+                .withColumnRenamed("avg_temp", "day_temp")
+                .withColumnRenamed("avg_hum", "day_hum")
+                .withColumn("day_temp", bround(col("day_temp"), 2))
+                .withColumn("day_hum", bround(col("day_hum"), 2));
+        final Dataset<Row> nightRoom = meanDailyRoom
+                .filter(col("daily").equalTo(false))
+                .withColumnRenamed("fullRoomLocation", "fl")
+                .withColumnRenamed("day", "d")
+                .withColumnRenamed("avg_temp", "night_temp")
+                .withColumnRenamed("avg_hum", "night_hum")
+                .withColumn("night_temp", bround(col("night_temp"), 2))
+                .withColumn("night_hum", bround(col("night_hum"), 2));
 
         //No more used, so removed from cache
         meanDailyRoom.unpersist();
@@ -181,10 +210,11 @@ public class Stats {
         final Dataset<Row> diffRoom = dailyRoom.join(nightRoom, nightRoom.col("fl").equalTo(dailyRoom.col("fullRoomLocation")).and(nightRoom.col("d").equalTo(dailyRoom.col("day"))), "left_outer")
                 .filter(col("d").isNotNull())
                 .drop("daily", "d", "fl")
-                .withColumn("temp_diff", expr("day_temp-night_temp"))
-                .withColumn("hum_diff", expr("day_hum-night_hum"));
+                .withColumn("temp_diff", bround(expr("day_temp-night_temp"), 2))
+                .withColumn("hum_diff", bround(expr("day_hum-night_hum"), 2));
         diffRoom.cache();
-        //diffRoom.show();
+        diffRoom.show();
+        writeToCsv(diffRoom, "diffRoom");
 
 
 
@@ -198,8 +228,20 @@ public class Stats {
                 .orderBy("day");
         meanDailyFloor.cache();
 
-        final Dataset<Row> dailyFloor = meanDailyFloor.filter(col("daily").equalTo(true)).withColumnRenamed("avg_temp", "day_temp").withColumnRenamed("avg_hum", "day_hum");
-        final Dataset<Row> nightFloor = meanDailyFloor.filter(col("daily").equalTo(false)).withColumnRenamed("fullFloorLocation", "fl").withColumnRenamed("day", "d").withColumnRenamed("avg_temp", "night_temp").withColumnRenamed("avg_hum", "night_hum");
+        final Dataset<Row> dailyFloor = meanDailyFloor
+                .filter(col("daily").equalTo(true))
+                .withColumnRenamed("avg_temp", "day_temp")
+                .withColumnRenamed("avg_hum", "day_hum")
+                .withColumn("day_temp", bround(col("day_temp"), 2))
+                .withColumn("day_hum", bround(col("day_hum"), 2));
+        final Dataset<Row> nightFloor = meanDailyFloor
+                .filter(col("daily").equalTo(false))
+                .withColumnRenamed("fullFloorLocation", "fl")
+                .withColumnRenamed("day", "d")
+                .withColumnRenamed("avg_temp", "night_temp")
+                .withColumnRenamed("avg_hum", "night_hum")
+                .withColumn("night_temp", bround(col("night_temp"), 2))
+                .withColumn("night_hum", bround(col("night_hum"), 2));
 
         //No more used, so removed from cache
         meanDailyFloor.unpersist();
@@ -207,10 +249,11 @@ public class Stats {
         final Dataset<Row> diffFloor = dailyFloor.join(nightFloor, nightFloor.col("fl").equalTo(dailyFloor.col("fullFloorLocation")).and(nightFloor.col("d").equalTo(dailyFloor.col("day"))), "left_outer")
                 .filter(col("d").isNotNull())
                 .drop("daily", "d", "fl")
-                .withColumn("temp_diff", expr("day_temp-night_temp"))
-                .withColumn("hum_diff", expr("day_hum-night_hum"));
+                .withColumn("temp_diff", bround(expr("day_temp-night_temp"), 2))
+                .withColumn("hum_diff", bround(expr("day_hum-night_hum"), 2));
         diffFloor.cache();
-        //diffFloor.show();
+        diffFloor.show();
+        writeToCsv(diffFloor, "diffFloor");
 
 
 
@@ -224,8 +267,20 @@ public class Stats {
                 .orderBy("day");
         meanDailyBuilding.cache();
 
-        final Dataset<Row> dailyBuilding = meanDailyBuilding.filter(col("daily").equalTo(true)).withColumnRenamed("avg_temp", "day_temp").withColumnRenamed("avg_hum", "day_hum");
-        final Dataset<Row> nightBuilding = meanDailyBuilding.filter(col("daily").equalTo(false)).withColumnRenamed("fullBuildingLocation", "fl").withColumnRenamed("day", "d").withColumnRenamed("avg_temp", "night_temp").withColumnRenamed("avg_hum", "night_hum");
+        final Dataset<Row> dailyBuilding = meanDailyBuilding
+                .filter(col("daily").equalTo(true))
+                .withColumnRenamed("avg_temp", "day_temp")
+                .withColumnRenamed("avg_hum", "day_hum")
+                .withColumn("day_temp", bround(col("day_temp"), 2))
+                .withColumn("day_hum", bround(col("day_hum"), 2));
+        final Dataset<Row> nightBuilding = meanDailyBuilding
+                .filter(col("daily").equalTo(false))
+                .withColumnRenamed("fullBuildingLocation", "fl")
+                .withColumnRenamed("day", "d")
+                .withColumnRenamed("avg_temp", "night_temp")
+                .withColumnRenamed("avg_hum", "night_hum")
+                .withColumn("night_temp", bround(col("night_temp"), 2))
+                .withColumn("night_hum", bround(col("night_hum"), 2));
 
         //No more used, so removed from cache
         meanDailyBuilding.unpersist();
@@ -233,10 +288,11 @@ public class Stats {
         final Dataset<Row> diffBuilding = dailyBuilding.join(nightBuilding, nightBuilding.col("fl").equalTo(dailyBuilding.col("fullBuildingLocation")).and(nightBuilding.col("d").equalTo(dailyBuilding.col("day"))), "left_outer")
                 .filter(col("d").isNotNull())
                 .drop("daily", "d", "fl")
-                .withColumn("temp_diff", expr("day_temp-night_temp"))
-                .withColumn("hum_diff", expr("day_hum-night_hum"));
+                .withColumn("temp_diff", bround(expr("day_temp-night_temp"), 2))
+                .withColumn("hum_diff", bround(expr("day_hum-night_hum"), 2));
         diffBuilding.cache();
-        //diffBuilding.show();
+        diffBuilding.show();
+        writeToCsv(diffBuilding, "diffBuilding");
 
 
 
@@ -250,8 +306,20 @@ public class Stats {
                 .orderBy("day");
         meanDailyNeighborhood.cache();
 
-        final Dataset<Row> dailyNeighborhood = meanDailyNeighborhood.filter(col("daily").equalTo(true)).withColumnRenamed("avg_temp", "day_temp").withColumnRenamed("avg_hum", "day_hum");
-        final Dataset<Row> nightNeighborhood = meanDailyNeighborhood.filter(col("daily").equalTo(false)).withColumnRenamed("neighborhood", "fl").withColumnRenamed("day", "d").withColumnRenamed("avg_temp", "night_temp").withColumnRenamed("avg_hum", "night_hum");
+        final Dataset<Row> dailyNeighborhood = meanDailyNeighborhood
+                .filter(col("daily").equalTo(true))
+                .withColumnRenamed("avg_temp", "day_temp")
+                .withColumnRenamed("avg_hum", "day_hum")
+                .withColumn("day_temp", bround(col("day_temp"), 2))
+                .withColumn("day_hum", bround(col("day_hum"), 2));
+        final Dataset<Row> nightNeighborhood = meanDailyNeighborhood
+                .filter(col("daily").equalTo(false))
+                .withColumnRenamed("neighborhood", "fl")
+                .withColumnRenamed("day", "d")
+                .withColumnRenamed("avg_temp", "night_temp")
+                .withColumnRenamed("avg_hum", "night_hum")
+                .withColumn("night_temp", bround(col("night_temp"), 2))
+                .withColumn("night_hum", bround(col("night_hum"), 2));
 
         //No more used, so removed from cache
         meanDailyNeighborhood.unpersist();
@@ -259,10 +327,11 @@ public class Stats {
         final Dataset<Row> diffNeighborhood = dailyNeighborhood.join(nightNeighborhood, nightNeighborhood.col("fl").equalTo(dailyNeighborhood.col("neighborhood")).and(nightNeighborhood.col("d").equalTo(dailyNeighborhood.col("day"))), "left_outer")
                 .filter(col("d").isNotNull())
                 .drop("daily", "d", "fl")
-                .withColumn("temp_diff", expr("day_temp-night_temp"))
-                .withColumn("hum_diff", expr("day_hum-night_hum"));
+                .withColumn("temp_diff", bround(expr("day_temp-night_temp"), 2))
+                .withColumn("hum_diff", bround(expr("day_hum-night_hum"), 2));
         diffNeighborhood.cache();
-        //diffNeighborhood.show();
+        diffNeighborhood.show();
+        writeToCsv(diffNeighborhood, "diffNeighborhood");
 
 
 
@@ -281,8 +350,12 @@ public class Stats {
         //No more used, so removed from cache
         diffRoom.unpersist();
 
-        final Dataset<Row> maxMonthRoom = avgMonthRoom.select(col("month"), col("temp")).where(col("temp").equalTo(avgMonthRoom.select(max("temp")).first().getDouble(0)));
+        final Dataset<Row> maxMonthRoom = avgMonthRoom
+                .select(col("month"), col("temp"))
+                .where(col("temp").equalTo(avgMonthRoom.select(max("temp")).first().getDouble(0)))
+                .withColumn("temp", bround(col("temp"), 2));
         maxMonthRoom.show();
+        writeToCsv(maxMonthRoom, "maxMonthRoom");
 
 
 
@@ -299,8 +372,12 @@ public class Stats {
         //No more used, so removed from cache
         diffFloor.unpersist();
 
-        final Dataset<Row> maxMonthFloor = avgMonthFloor.select(col("month"), col("temp")).where(col("temp").equalTo(avgMonthFloor.select(max("temp")).first().getDouble(0)));
+        final Dataset<Row> maxMonthFloor = avgMonthFloor
+                .select(col("month"), col("temp"))
+                .where(col("temp").equalTo(avgMonthFloor.select(max("temp")).first().getDouble(0)))
+                .withColumn("temp", bround(col("temp"), 2));
         maxMonthFloor.show();
+        writeToCsv(maxMonthFloor, "maxMonthFloor");
 
 
 
@@ -317,8 +394,12 @@ public class Stats {
         //No more used, so removed from cache
         diffBuilding.unpersist();
 
-        final Dataset<Row> maxMonthBuilding = avgMonthBuilding.select(col("month"), col("temp")).where(col("temp").equalTo(avgMonthBuilding.select(max("temp")).first().getDouble(0)));
+        final Dataset<Row> maxMonthBuilding = avgMonthBuilding
+                .select(col("month"), col("temp"))
+                .where(col("temp").equalTo(avgMonthBuilding.select(max("temp")).first().getDouble(0)))
+                .withColumn("temp", bround(col("temp"), 2));
         maxMonthBuilding.show();
+        writeToCsv(maxMonthBuilding, "maxMonthBuilding");
 
 
 
@@ -335,29 +416,33 @@ public class Stats {
         //No more used, so removed from cache
         diffNeighborhood.unpersist();
 
-        final Dataset<Row> maxMonthNeighborhood = avgMonthNeighborhood.select(col("month"), col("temp")).where(col("temp").equalTo(avgMonthNeighborhood.select(max("temp")).first().getDouble(0)));
+        final Dataset<Row> maxMonthNeighborhood = avgMonthNeighborhood
+                .select(col("month"), col("temp"))
+                .where(col("temp").equalTo(avgMonthNeighborhood.select(max("temp")).first().getDouble(0)))
+                .withColumn("temp", bround(col("temp"), 2));
         maxMonthNeighborhood.show();
+        writeToCsv(maxMonthNeighborhood, "maxMonthNeighborhood");
 
-        //writeToCsv(maxMonthNeighborhood);
-        /*maxMonthNeighborhood
-                .write()
-                .mode(SaveMode.Overwrite)
-                .option("header", true)
-                .option("delimiter", ";")
-                .option("dateFormat","dd/MM/yyyy HH:mm:ss")
-                .csv("../Stats");*/
+
 
         spark.close();
 
     }
 
-    /*public static void writeToCsv(Dataset<Row> dataset) {
+    public static void writeToCsv(Dataset<Row> dataset, String path) {
         dataset
                 .write()
                 .mode(SaveMode.Overwrite)
                 .option("header", true)
                 .option("delimiter", ";")
-                .option("dateFormat","dd/MM/yyyy HH:mm:ss")
-                .csv("../Stats");
-    }*/
+                //Da un problema quando HH:mm:ss == 00:00:00
+                //.option("dateFormat","dd/MM/yyyy HH:mm:ss")
+                .csv("../Stats/" + path);
+
+        /*SparkContext sc = spark.sparkContext();
+        FileSystem fs = FileSystem.get(sc.hadoopConfiguration());
+        String file = fs.globStatus(new Path("../Stats/part"))[0].getPath().getName();
+
+        fs.rename(new Path("../Stats/" + file), new Path("../Stats/" + name));*/
+    }
 }
