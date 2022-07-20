@@ -43,7 +43,7 @@ def generate_fake_data(n):
 
 print("Starting...")
 
-temp, hum, datetime, location = generate_fake_data(40000)
+temp, hum, datetime, location = generate_fake_data(100000)
 
 df = pd.DataFrame([])
 df['Temperature'] = temp
