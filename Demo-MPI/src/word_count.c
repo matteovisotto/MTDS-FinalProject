@@ -4,29 +4,7 @@
 #include <string.h>
 #include <stddef.h>
 
-#define max_size 10//11//10//1
-
-// Distributed count of the number of occurrences of each character in a set of files.
-//
-// For simplicity, the program considers only the 26 (lower case) letters of the english
-// alphabet.
-//
-// The computation takes place in two phases (inspired by the MapReduce programming model).
-//
-// In the first phase, each process reads one file and computes the number of occurrences
-// of each character in that file.
-//
-// In the second phase, each process becomes responsible for some of the characters and
-// aggregates the partial counts for those characters.
-//
-// The code exemplifies the use of custom datatypes and the use of asynchronous communication.
-//
-// Possible extensions/improvements:
-// 1. Each process can send (asynchronously) all the data it has for other processes
-//    before starting to receive.
-// 2. The number of processes could be different than the number of files.
-// 3. The final result can be collected in a single node.
-
+#define max_size 11//1
 
 typedef struct pair_char_pair_t {
     char c[max_size];
@@ -35,7 +13,6 @@ typedef struct pair_char_pair_t {
 } char_int_pair;
 
 int main(int argc, char** argv) {
-    //const int num_letters = 26;
     int actualSize = 0;
     const char *files_path = "../files/in";
     int wordFound = 0;
@@ -55,21 +32,21 @@ int main(int argc, char** argv) {
     // (different compilers might align structures differently)
     MPI_Aint displacements[struct_len];
     MPI_Aint current_displacement = 0;
-    // Add one char
-    block_lens[0] = max_size;//1;
+    //Add string
+    block_lens[0] = max_size;
     types[0] = MPI_CHAR;
-    //displacements[0] = (size_t) &(pair.c) - (size_t) &pair;
-    displacements[0] = offsetof(char_int_pair, c);
-    // Add one int
+    displacements[0] = (size_t) &(pair.c) - (size_t) &pair;
+    //displacements[0] = offsetof(char_int_pair, c);
+    //Add the count
     block_lens[1] = 1;
     types[1] = MPI_INT;
-    //displacements[1] = (size_t) &(pair.count) - (size_t) &pair;
-    displacements[1] = offsetof(char_int_pair, count);
+    displacements[1] = (size_t) &(pair.count) - (size_t) &pair;
+    //displacements[1] = offsetof(char_int_pair, count);
     //block_lens[2] = 1;
     //types[2] = MPI_INT;
     //displacements[2] = (size_t) &(pair.count) - (size_t) &pair;
     //displacements[2] = offsetof(char_int_pair, rank);
-    // Create and commit the data structure
+    //Create and commit the data structure
     MPI_Type_create_struct(struct_len, block_lens, displacements, types, &mpi_char_int_pair);
     MPI_Type_commit(&mpi_char_int_pair);
 
@@ -79,36 +56,11 @@ int main(int argc, char** argv) {
 
 
 
-
     int files_path_len;
     char my_file[files_path_len + 2];
-    // Getting the name of my file (supports up to 100 processes)
-    //if (my_rank == 0) {
     files_path_len = strlen(files_path);
     strcpy(my_file, files_path);
     sprintf(&my_file[files_path_len], "%d", my_rank);
-    //}
-
-
-
-
-    //Divide the files for the different processes
-    //MPI_Scatter(my_file, files_path_len + 2, MPI_CHAR, my_file, files_path_len + 2, MPI_CHAR, 0, MPI_COMM_WORLD);
-    //MPI_Bcast(&my_file, 1, MPI_CHAR, 0, MPI_COMM_WORLD);
-
-
-    // Phase 1 (read input file and compute the number of occurrences of each character)
-    /*char_int_pair *local_count = (char_int_pair *) malloc(sizeof(char_int_pair) * num_letters);
-    for (int i = 0; i < num_letters; i++) {
-      local_count[i].c[0] = i + 'a';
-      local_count[i].count = 0;
-    }
-    FILE *file = fopen(my_file, "r");
-    char c;
-    while ((c = fgetc(file)) != EOF) {
-        int c_index = (int) c - 'a';
-        local_count[c_index].count++;
-    }*/
 
     char_int_pair* local_count;
 
@@ -119,6 +71,7 @@ int main(int argc, char** argv) {
     size_t len;
     int r = 0;
     char* lineChar;
+    char test;
     //printf("%s", my_file);
     while ((c = fgetc(file)) != EOF) {
         //Get the word
@@ -126,20 +79,35 @@ int main(int argc, char** argv) {
             word[k] = c;
             k++;
             endedWithNewLine = 0;
+
+
+            //Da qua si vede il problena del \n
+            /*char *ret;
+            ret = strstr(word, "prova3");
+            if (ret) {
+                printf("found substring at address %p\n", ret);
+                printf("Word -> %s, Char -> %c\n", word, c);
+                if (c == '\n') {
+                    printf("Whyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\n");
+                }
+            } else {
+                printf("no substring found!\n");
+            }*/
         }
         //Assign the word if we find newLine or space
         if (c == '\n' || c == ' '){
             //Assign word and clear it
-
             //Cycle below doesn't solve the problem for \n
             while(word[r] != '\0') {
                 if(word[r] == '\n' || word[r] == ' ')
                 {
                     word[r] = '\0';
+                    break;
                 }
                 r++;
             }
             r = 0;
+            //printf("%s", word);
             if (first == 1) {
                 first = 0;
                 actualSize++;
@@ -181,13 +149,13 @@ int main(int argc, char** argv) {
 
     //Assign the word if we reach the EOF
     if (endedWithNewLine == 0) {
-
         //Cycle below doesn't solve the problem for \n
         while(word[r] != '\0')
         {
             if(word[r] == '\n' || word[r] == ' ')
             {
                 word[r]='\0';
+                break;
             }
             r++;
         }
@@ -214,7 +182,6 @@ int main(int argc, char** argv) {
                 if (strcmp(local_count[i].c, word) == 0) {
                     local_count[i].count++;
                     wordFound = 1;
-                    //break;
                 }
                 //printf("%s   ->   %d   ->   myRank = %d\n", local_count[0].c, local_count[0].count, my_rank);
             }
@@ -237,123 +204,84 @@ int main(int argc, char** argv) {
     //printf("%s   ->   %d   ->   myRank = %d\n", local_count[0].c, local_count[0].count, local_count[0].rank);
 
 
-    //Gather, collecting the different word and create the structure
-    char_int_pair* gather_buffer = NULL;
+    //Here I gather the sizes
+    int* gather_length = NULL;
+    int sum = 0;
+    int max_value = 0;
+
+    gather_length = (int *) malloc(sizeof(int) * world_size);
+
+    const int size[] = {1,1,1,1};
+    const int displacementSize[] = {0,1,2,3};
+    int gatherDisplacement[world_size];
+
+    MPI_Gatherv(&actualSize, 1, MPI_INT, gather_length, size, displacementSize, MPI_INT, 0, MPI_COMM_WORLD);
+
     if (my_rank == 0) {
-        //Penso che non prenda le altre parole perché devo allocare lo spazio (conoscendo le parole per testo peró) totale che poi la gather si gestisce (quindi da fixare anche la gather)
-        gather_buffer = (char_int_pair *) malloc(sizeof(char_int_pair) * world_size);
+        gatherDisplacement[0] = 0;
+        for (int l = 1; l < world_size; l++){
+            if (max_value < gather_length[l]) {
+                max_value = gather_length[l];
+            }
+            gatherDisplacement[l] = sum + actualSize;
+            sum += gather_length[l];
+            //printf("%d\n", gatherDisplacement[l]);
+        }
+        sum += actualSize;
     }
 
-    MPI_Gather(local_count, 1, mpi_char_int_pair, gather_buffer, 1, mpi_char_int_pair, 0, MPI_COMM_WORLD);
+
+    /*if (my_rank == 0){
+        for (int sd = 0; sd < world_size; sd++){
+            printf("Displ -> %d, Sum -> %d, Length -> %d, ActualSize -> %d\n", gatherDisplacement[sd], sum, gather_length[sd], actualSize);
+        }
+    }*/
+
 
     int found = 0;
-    int first_round = 1;
+    char_int_pair* gather_buffer = NULL;
 
+    //Gather, collecting the different words and create the structure
     if (my_rank == 0) {
-        for (int j = 0; j < world_size; j++){
-            /*for (int i = 0; i < world_size; i++) {
-                //printf("%s   ->   %s   ->   %d\n", local_count[j].c, gather_buffer[i].c, local_count[j].count);
-                gather_buffer[i].c[max_size] = '\0';
-                if (strcmp(local_count[j].c, gather_buffer[i].c) == 0) {
-                    local_count[j].count += gather_buffer[i].count;
-                    break;
-                } else {
-                    //Otherwise realloc new space
-                    actualSize++;
-                    local_count = (char_int_pair *) realloc(local_count, sizeof(char_int_pair) * actualSize);
-                    memcpy(local_count[actualSize - 1].c, gather_buffer[i].c, sizeof(gather_buffer[i].c));
-                    local_count[actualSize - 1].count += gather_buffer[i].count;
-                    //printf("%s   ->   %s   ->   %d\n", local_count[j].c, gather_buffer[i].c, gather_buffer[j].count);
-                    //for (int j = 0; j < actualSize; j++) {
-                    //    printf("%d, %s, %d\n", j, local_count[j].c, local_count[j].count);
-                    //}
-                    //printf("%s\n", rec_buffer.c);
-                    //printf("%s\n", local_count[actualSize - 1].c);
-                    //printf("size -> %d\n", actualSize);
-                    break;
-                }
-                //printf("%s -> %d", gather_buffer[i].c, gather_buffer[i].count);
-            }*/
-
-            if (first_round == 0){
-                for (int i = 0; i < actualSize; i++) {
-                    /*lineChar = strchr(gather_buffer[j].c, '\n');
-                    if (lineChar != NULL){
-                        printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-                    }*/
-                    gather_buffer[j].c[max_size] = '\0';
-                    if (strcmp(local_count[i].c, gather_buffer[j].c) == 0 /* && gather_buffer[j].rank != 0*/) {
-                        local_count[i].count += gather_buffer[j].count;
-                        found = 1;
-                        break;
-                    }
-                }
-                if (found == 0) {
-                    actualSize++;
-                    local_count = (char_int_pair *) realloc(local_count, sizeof(char_int_pair) * actualSize);
-                    memcpy(local_count[actualSize - 1].c, gather_buffer[j].c, sizeof(gather_buffer[j].c));
-                    local_count[actualSize - 1].count += gather_buffer[j].count;
-                }
-                found = 0;
-                /*for (int s = 0; s < actualSize; s++) {
-                    printf("%d, %s, %d\n", s, local_count[s].c, local_count[s].count);
-                }*/
-            }
-            first_round = 0;
-        }
+        gather_buffer = (char_int_pair *) realloc(gather_buffer, sizeof(char_int_pair) * sum);
     }
 
+    MPI_Gatherv(local_count, actualSize, mpi_char_int_pair, gather_buffer, gather_length, gatherDisplacement, mpi_char_int_pair, 0, MPI_COMM_WORLD);
+    //printf("Word -> %s, Rank -> %d\n", local_count[s].c, my_rank);
 
+    if (my_rank == 0) {
+        int fixed_size = actualSize;
+        //To skip all the elements of the with rank 0
+        for (int j = fixed_size; j < sum; j++){
+            for (int i = 0; i < actualSize; i++) {
+                //printf("size -> %d\n", actualSize);
 
-    // Sending and receiving each letter
-    /*MPI_Request req;
-    for (int i = 0; i < actualSize; i++) {
-        int receiver = i % world_size;
-        // I am the receiver
-        if (receiver == my_rank) {
-            // I receive one message from any other process
-            for (int p = 0; p < world_size - 1; p++) {
-                char_int_pair rec_buffer;
-                MPI_Recv(&rec_buffer, 1, mpi_char_int_pair, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                //local_count[i].c[max_size] = '\0';
-                //rec_buffer.c[max_size] = '\0';
-                //rec_buffer.c[max_size] = '\0';
-                //printf("%s   ->   %s\n", local_count[i].c, rec_buffer.c);
-                //If the same, add to the current count
-                if (strcmp(local_count[i].c, rec_buffer.c) == 0) {
-                    local_count[i].count += rec_buffer.count;
-                } else {
-                    //Otherwise realloc new space
-                    actualSize++;
-                    local_count = (char_int_pair *) realloc(local_count, sizeof(char_int_pair) * actualSize);
-                    memcpy(local_count[actualSize - 1].c, rec_buffer.c, sizeof(rec_buffer.c));
-                    local_count[actualSize - 1].count += rec_buffer.count;
-                    //for (int j = 0; j < actualSize; j++) {
-                    //    printf("%d, %s, %d\n", j, local_count[j].c, local_count[j].count);
-                    //}
-                    //printf("%s\n", rec_buffer.c);
-                    //printf("%s\n", local_count[actualSize - 1].c);
-                    //printf("size -> %d\n", actualSize);
+                len = strlen(gather_buffer[j].c);
+                memcpy(word, gather_buffer[j].c, len);
+                word[len] = '\0';
+
+                if (strcmp(local_count[i].c, word) == 0) {
+                    local_count[i].count += gather_buffer[j].count;
+                    found = 1;
+                    break;
                 }
             }
-        }
-            // I am a sender: I can send asynchronously
-        else {
-            MPI_Isend(&local_count[i], 1, mpi_char_int_pair, receiver, 0, MPI_COMM_WORLD, &req);
-        }
-    }*/
+            if (found == 0) {
+                actualSize++;
+                local_count = (char_int_pair *) realloc(local_count, sizeof(char_int_pair) * actualSize);
 
+                len = strlen(word);
+                memcpy(local_count[actualSize - 1].c, word, len);
+                local_count[actualSize - 1].c[len] = '\0';
 
-
-    // When done, everybody prints its own results
-    /*for (int i = 0; i < actualSize; i++) {
-        //printf("%d", actualSize);
-        int owner = i % world_size;
-        if (owner == my_rank) {
-            //printf("%c -> %d\n", local_count[i].c[0], local_count[i].count);
-            printf("%s -> %d\n", local_count[i].c, local_count[i].count);
+                local_count[actualSize - 1].count += gather_buffer[j].count;
+                //printf("%s -> %d\n", word, gather_buffer[j].count);
+                //printf("%s   ->   %d\n", local_count[actualSize - 1].c, local_count[actualSize - 1].count);
+            }
+            memset(word, 0, sizeof(word));
+            found = 0;
         }
-    }*/
+    }
 
     if (my_rank == 0) {
         for (int i = 0; i < actualSize; i++) {
@@ -363,6 +291,9 @@ int main(int argc, char** argv) {
         }
     }
 
+    fflush(stdout);
+
+    free(gather_length);
     free(gather_buffer);
     free(local_count);
     MPI_Type_free(&mpi_char_int_pair);
