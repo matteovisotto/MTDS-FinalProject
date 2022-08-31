@@ -15,8 +15,9 @@ def get_sensor_location(sensor_id):
 def on_sensor_request_config(sensor_id):
     publish_client = mqtt.Client("control1")
     publish_client.connect(BROKER, PORT)
-    publish_client.publish("mtds/sensor/conf/"+sensor_id, get_sensor_location(sensor_id))
-
+    sensor_location = get_sensor_location(sensor_id)
+    publish_client.publish("mtds/sensor/conf/"+sensor_id, sensor_location)
+    print("Sent configuration to mtds/sensor/conf/" + sensor_id + "with location conf " + sensor_location)
 
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code {0}".format(str(rc)))
@@ -24,6 +25,7 @@ def on_connect(client, userdata, flags, rc):
 
 
 def on_message(client, userdata, msg):
+    print("Received message: " + msg.payload.decode())
     sensor_id = msg.payload.decode()
     on_sensor_request_config(sensor_id)
 
