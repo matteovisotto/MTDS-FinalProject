@@ -2,7 +2,7 @@ import paho.mqtt.client as mqtt
 
 BROKER = "server.matmacsystem.it"
 PORT = 1883
-TOPIC = "mtds/sensor/data/A/1/S/2"
+TOPIC = "mtds/sensor/conf/mtdssens-0002"
 
 
 def on_connect(client, userdata, flags, rc):
