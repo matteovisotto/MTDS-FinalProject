@@ -91,7 +91,7 @@ def on_message(client, userdata, msg):
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         location = sys.argv[1]
-        pattern = re.compile("^([A-Z0-9]{1}.[A-Z0-9]{1}.[A-Z0-9]{1}.[A-Z0-9]{1})$")
+        pattern = re.compile("^([A-Z0-9]+.[A-Z0-9]+.[A-Z0-9]+.[A-Z0-9]+)$")
         if pattern.match(location):
             location = location.replace(".", "/")
             init_location = location

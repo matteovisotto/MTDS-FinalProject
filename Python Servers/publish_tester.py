@@ -2,8 +2,8 @@ import paho.mqtt.client as paho
 
 BROKER = "server.matmacsystem.it"
 PORT = 1883
-TOPIC = "mtds/sensor/data/A/5/4/2"
-DATA = '{"d":{"hum":25, "temp_c":28}}'
+TOPIC = "mtds/sensor/conf"
+DATA = 'mtdssens-0006'
 
 def on_publish(client,userdata,result):
     print("data published \n")
