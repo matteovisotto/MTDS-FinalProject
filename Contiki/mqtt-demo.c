@@ -48,7 +48,8 @@
 #include "leds.h"
 
 #include "sys/log.h"
-#define LOG_MODULE "MQTT-DEMO"
+//#define LOG_MODULE "MQTT-DEMO"
+#define LOG_MODULE "MQTT-MOTE"
 #define LOG_LEVEL LOG_LEVEL_INFO
 
 #include <string.h>
@@ -57,8 +58,7 @@
  * Publish to a local MQTT broker (e.g. mosquitto) running on
  * the node that hosts your border router
  */
-static const char *broker_ip = MQTT_DEMO_BROKER_IP_ADDR;
-//#define DEFAULT_ORG_ID              "mqtt-demo"
+static const char *broker_ip = BROKER_IP_ADDR;
 #define DEFAULT_ORG_ID              "mtdssens"
 /*---------------------------------------------------------------------------*/
 /*
@@ -119,8 +119,8 @@ static uint8_t state;
 #define DEFAULT_PUBLISH_INTERVAL    (60 * CLOCK_SECOND)
 #define DEFAULT_KEEP_ALIVE_TIMER    60
 /*---------------------------------------------------------------------------*/
-PROCESS_NAME(mqtt_demo_process);
-AUTOSTART_PROCESSES(&mqtt_demo_process);
+PROCESS_NAME(mqtt_mote_process);
+AUTOSTART_PROCESSES(&mqtt_mote_process);
 /*---------------------------------------------------------------------------*/
 /**
  * \brief Data structure declaration for the MQTT client configuration
@@ -150,6 +150,8 @@ static char client_py_id[BUFFER_SIZE];
 static char pub_topic[BUFFER_SIZE];
 static char sub_topic[BUFFER_SIZE];
 static char location_topic[BUFFER_SIZE];
+static char value_temp[6];
+static char value_hum[6];
 /*---------------------------------------------------------------------------*/
 /*
  * The main MQTT buffers.
@@ -165,12 +167,12 @@ static struct ctimer ct;
 static char *buf_ptr;
 static uint16_t seq_nr_value = 0;
 /*---------------------------------------------------------------------------*/
-//To start the other subscribe
+//To start to publish reeal sensor data
 static int id_not_yet_set = 1;
 /*---------------------------------------------------------------------------*/
 static mqtt_client_config_t conf;
 /*---------------------------------------------------------------------------*/
-PROCESS(mqtt_demo_process, "MQTT Demo");
+PROCESS(mqtt_mote_process, "MQTT mote");
 /*---------------------------------------------------------------------------*/
 int
 ipaddr_sprintf(char *buf, uint8_t buf_len, const uip_ipaddr_t *addr)
@@ -200,7 +202,7 @@ ipaddr_sprintf(char *buf, uint8_t buf_len, const uip_ipaddr_t *addr)
 static void
 publish_led_off(void *d)
 {
-    leds_off(MQTT_DEMO_STATUS_LED);
+    leds_off(STATUS_LED);
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -231,7 +233,7 @@ mqtt_event(struct mqtt_connection *m, mqtt_event_t event, void *data)
             LOG_INFO("MQTT Disconnect: reason %u\n", *((mqtt_event_t *)data));
 
             state = STATE_DISCONNECTED;
-            process_poll(&mqtt_demo_process);
+            process_poll(&mqtt_mote_process);
             break;
         }
         case MQTT_EVENT_PUBLISH: {
@@ -410,18 +412,22 @@ subscribe(void)
     }
 }
 /*---------------------------------------------------------------------------*/
-static int
+static float
 get_onboard_temp(void)
 {
+    float min = 15.00;
+    float max = 35.00;
     //return a value between 15 and 35
-    return (rand() % 20) + 15;
+    return (min + 1) + (((float) rand()) / (float) RAND_MAX) * (max - (min + 1));
 }
 /*---------------------------------------------------------------------------*/
-static int
+static float
 get_onboard_hum(void)
 {
+    float min = 55.00;
+    float max = 75.00;
     //return a value between 55 and 75
-    return (rand() % 20) + 55;
+    return (min + 1) + (((float) rand()) / (float) RAND_MAX) * (max - (min + 1));
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -429,6 +435,11 @@ publish(void)
 {
     int len;
     int remaining = APP_BUFFER_SIZE;
+
+    snprintf(value_temp, 6, "%.2f", get_onboard_temp());
+    value_temp[2] = '.';
+    snprintf(value_hum, 6, "%.2f", get_onboard_hum());
+    value_hum[2] = '.';
 
     seq_nr_value++;
 
@@ -438,9 +449,10 @@ publish(void)
                    "{"
                    "\"d\":{"
                    "\"s_id\":\"%s\","
-                   "\"temp_c\":%d,"
-                   "\"hum\":%d",
-                   client_py_id, get_onboard_temp(), get_onboard_hum());
+		   "\"seq\":%d,"
+                   "\"temp_c\":%s,"
+                   "\"hum\":%s",
+                   client_py_id, seq_nr_value, value_temp, value_hum);
 
     if(len < 0 || len >= remaining) {
         LOG_ERR("Buffer too short. Have %d, need %d + \\0\n", remaining, len);
@@ -516,7 +528,7 @@ state_machine(void)
 {
     switch(state) {
         case STATE_INIT:
-            mqtt_register(&conn, &mqtt_demo_process, client_id, mqtt_event,
+            mqtt_register(&conn, &mqtt_mote_process, client_id, mqtt_event,
                           MAX_TCP_SEGMENT_SIZE);
 
             mqtt_set_username_password(&conn, "use-token-auth",
@@ -532,19 +544,30 @@ state_machine(void)
                 LOG_INFO("Joined network! Connect attempt %u\n", connect_attempt);
                 connect_to_broker();
             } else {
-                leds_on(MQTT_DEMO_STATUS_LED);
+                leds_on(STATUS_LED);
                 ctimer_set(&ct, NO_NET_LED_DURATION, publish_led_off, NULL);
             }
             etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
             return;
             break;
         case STATE_CONNECTING:
-            leds_on(MQTT_DEMO_STATUS_LED);
+            leds_on(STATUS_LED);
             ctimer_set(&ct, CONNECTING_LED_DURATION, publish_led_off, NULL);
             LOG_INFO("Connecting: retry %u...\n", connect_attempt);
             break;
 	case STATE_LISTENING:
 	    if (!id_not_yet_set){
+		mqtt_status_t status;
+		status = mqtt_unsubscribe(&conn, NULL, sub_topic);
+		if (status == MQTT_STATUS_NOT_CONNECTED_ERROR) {
+        		LOG_INFO("Not connected to the broker!\n");
+		} else {
+			LOG_INFO("Unsubscribing\n");
+    			if(status == MQTT_STATUS_OUT_QUEUE_FULL) {
+        			LOG_INFO("Tried to unsubscribe but command queue was full!\n");
+    			}
+		}
+		
 		update_config(id_not_yet_set);
 		state = STATE_PUBLISHING;
 	    } 
@@ -566,7 +589,7 @@ state_machine(void)
                     subscribe();
                     state = STATE_PUBLISHING_CONF;
                 } else {
-                    leds_on(MQTT_DEMO_STATUS_LED);
+                    leds_on(STATUS_LED);
                     ctimer_set(&ct, PUBLISH_LED_ON_DURATION, publish_led_off, NULL);
                     publish_conf();
 		    state = STATE_LISTENING;
@@ -602,7 +625,7 @@ state_machine(void)
 
             if(mqtt_ready(&conn) && conn.out_buffer_sent) {
                 /* Connected; publish */
-                leds_on(MQTT_DEMO_STATUS_LED);
+                leds_on(STATUS_LED);
                 ctimer_set(&ct, PUBLISH_LED_ON_DURATION, publish_led_off, NULL);
                 publish();
 
@@ -655,7 +678,7 @@ state_machine(void)
             return;
         case STATE_ERROR:
         default:
-            leds_on(MQTT_DEMO_STATUS_LED);
+            leds_on(STATUS_LED);
             /*
              * 'default' should never happen
              *
@@ -670,12 +693,12 @@ state_machine(void)
     etimer_set(&publish_periodic_timer, STATE_MACHINE_PERIODIC);
 }
 /*---------------------------------------------------------------------------*/
-PROCESS_THREAD(mqtt_demo_process, ev, data)
+PROCESS_THREAD(mqtt_mote_process, ev, data)
 {
 
     PROCESS_BEGIN();
 
-    LOG_INFO("MQTT Demo Process\n");
+    LOG_INFO("MQTT mote Process\n");
 
     init_config();
     update_config(id_not_yet_set);

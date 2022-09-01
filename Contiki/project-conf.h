@@ -31,7 +31,7 @@
 /*---------------------------------------------------------------------------*/
 /**
  * \file
- * Project specific configuration defines for the MQTT demo
+ * Project specific configuration defines for the MQTT mote
  */
 /*---------------------------------------------------------------------------*/
 #ifndef PROJECT_CONF_H_
@@ -42,21 +42,15 @@
 /*---------------------------------------------------------------------------*/
 /* User configuration */
 /*---------------------------------------------------------------------------*/
-#define MQTT_DEMO_STATUS_LED  LEDS_GREEN
-#define MQTT_DEMO_TRIGGER_LED LEDS_RED
-#define MQTT_DEMO_PUBLISH_TRIGGER &button_left_sensor
+#define STATUS_LED  LEDS_GREEN
 
 #define PUBLISH_LOCATION   "mtds/sensor/data/"
 #define PUBLISH_CONF_TOPIC   "mtds/sensor/conf"
 #define SUB_CONF_TOPIC       "mtds/sensor/conf/"
 
-#define MQTT_DEMO_BROKER_IP_ADDR "fd00::1"
+#define BROKER_IP_ADDR "fd00::1"
 //*---------------------------------------------------------------------------*/
 #define IEEE802154_CONF_DEFAULT_CHANNEL      21
-//*---------------------------------------------------------------------------*/
-#define NATIVE_TEMPERATURE 25
-//*---------------------------------------------------------------------------*/
-#define NATIVE_HUMIDITY 25
 //*---------------------------------------------------------------------------*/
 #endif /* PROJECT_CONF_H_ */
 /*---------------------------------------------------------------------------*/
