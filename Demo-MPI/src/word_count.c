@@ -4,12 +4,11 @@
 #include <string.h>
 #include <stddef.h>
 
-#define max_size 11//1
+#define max_size 11
 
 typedef struct pair_char_pair_t {
     char c[max_size];
     int count;
-    //int rank;
 } char_int_pair;
 
 int main(int argc, char** argv) {
@@ -25,7 +24,6 @@ int main(int argc, char** argv) {
     char_int_pair pair;
     MPI_Datatype mpi_char_int_pair;
     int struct_len = 2;
-    //int struct_len = 3;
     int block_lens[struct_len];
     MPI_Datatype types[struct_len];
     // We need to compute the displacement to be really portable
@@ -36,16 +34,10 @@ int main(int argc, char** argv) {
     block_lens[0] = max_size;
     types[0] = MPI_CHAR;
     displacements[0] = (size_t) &(pair.c) - (size_t) &pair;
-    //displacements[0] = offsetof(char_int_pair, c);
     //Add the count
     block_lens[1] = 1;
     types[1] = MPI_INT;
     displacements[1] = (size_t) &(pair.count) - (size_t) &pair;
-    //displacements[1] = offsetof(char_int_pair, count);
-    //block_lens[2] = 1;
-    //types[2] = MPI_INT;
-    //displacements[2] = (size_t) &(pair.count) - (size_t) &pair;
-    //displacements[2] = offsetof(char_int_pair, rank);
     //Create and commit the data structure
     MPI_Type_create_struct(struct_len, block_lens, displacements, types, &mpi_char_int_pair);
     MPI_Type_commit(&mpi_char_int_pair);
@@ -72,27 +64,12 @@ int main(int argc, char** argv) {
     int r = 0;
     char* lineChar;
     char test;
-    //printf("%s", my_file);
     while ((c = fgetc(file)) != EOF) {
         //Get the word
         if (c != '\n' && c != ' '){
             word[k] = c;
             k++;
             endedWithNewLine = 0;
-
-
-            //Da qua si vede il problena del \n
-            /*char *ret;
-            ret = strstr(word, "prova3");
-            if (ret) {
-                printf("found substring at address %p\n", ret);
-                printf("Word -> %s, Char -> %c\n", word, c);
-                if (c == '\n') {
-                    printf("Whyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\n");
-                }
-            } else {
-                printf("no substring found!\n");
-            }*/
         }
         //Assign the word if we find newLine or space
         if (c == '\n' || c == ' '){
@@ -107,7 +84,6 @@ int main(int argc, char** argv) {
                 r++;
             }
             r = 0;
-            //printf("%s", word);
             if (first == 1) {
                 first = 0;
                 actualSize++;
@@ -138,7 +114,6 @@ int main(int argc, char** argv) {
                 local_count[actualSize - 1].c[len] = '\0';
 
                 local_count[actualSize - 1].count = 1;
-                //printf("%s", local_count[actualSize - 1].c);
             }
             memset(word, 0, sizeof(word));
             wordFound = 0;
@@ -170,12 +145,8 @@ int main(int argc, char** argv) {
             memcpy(local_count[0].c, word, len);
             local_count[0].c[len] = '\0';
 
-            //printf("%s", local_count[0].c);
             local_count[0].count = 1;
             wordFound = 1;
-
-            //local_count[0].rank = my_rank;
-            //printf("%s   ->   %d   ->   myRank = %d\n", local_count[0].c, local_count[0].count, my_rank);
         }
         if (wordFound == 0) {
             for (int i = 0; i < actualSize; i++) {
@@ -183,7 +154,6 @@ int main(int argc, char** argv) {
                     local_count[i].count++;
                     wordFound = 1;
                 }
-                //printf("%s   ->   %d   ->   myRank = %d\n", local_count[0].c, local_count[0].count, my_rank);
             }
         }
         if (wordFound == 0) {
@@ -199,9 +169,6 @@ int main(int argc, char** argv) {
         memset(word, 0, sizeof(word));
     }
     fclose(file);
-
-
-    //printf("%s   ->   %d   ->   myRank = %d\n", local_count[0].c, local_count[0].count, local_count[0].rank);
 
 
     //Here I gather the sizes
@@ -225,17 +192,9 @@ int main(int argc, char** argv) {
             }
             gatherDisplacement[l] = sum + actualSize;
             sum += gather_length[l];
-            //printf("%d\n", gatherDisplacement[l]);
         }
         sum += actualSize;
     }
-
-
-    /*if (my_rank == 0){
-        for (int sd = 0; sd < world_size; sd++){
-            printf("Displ -> %d, Sum -> %d, Length -> %d, ActualSize -> %d\n", gatherDisplacement[sd], sum, gather_length[sd], actualSize);
-        }
-    }*/
 
 
     int found = 0;
@@ -247,15 +206,12 @@ int main(int argc, char** argv) {
     }
 
     MPI_Gatherv(local_count, actualSize, mpi_char_int_pair, gather_buffer, gather_length, gatherDisplacement, mpi_char_int_pair, 0, MPI_COMM_WORLD);
-    //printf("Word -> %s, Rank -> %d\n", local_count[s].c, my_rank);
 
     if (my_rank == 0) {
         int fixed_size = actualSize;
         //To skip all the elements of the with rank 0
         for (int j = fixed_size; j < sum; j++){
             for (int i = 0; i < actualSize; i++) {
-                //printf("size -> %d\n", actualSize);
-
                 len = strlen(gather_buffer[j].c);
                 memcpy(word, gather_buffer[j].c, len);
                 word[len] = '\0';
@@ -275,8 +231,6 @@ int main(int argc, char** argv) {
                 local_count[actualSize - 1].c[len] = '\0';
 
                 local_count[actualSize - 1].count += gather_buffer[j].count;
-                //printf("%s -> %d\n", word, gather_buffer[j].count);
-                //printf("%s   ->   %d\n", local_count[actualSize - 1].c, local_count[actualSize - 1].count);
             }
             memset(word, 0, sizeof(word));
             found = 0;
@@ -287,7 +241,6 @@ int main(int argc, char** argv) {
         for (int i = 0; i < actualSize; i++) {
             printf("%s -> %d\n", local_count[i].c, local_count[i].count);
             //Usando la printf sotto, sembra che il \n faccia baggare la count e non la stringa (tipo una buffer overflow nella struct dove sembra si inserisca il \n nell'elemento sotto della struct)
-            //printf("Questa é la parola: %s -> %d\n", local_count[i].c, local_count[i].count);
         }
     }
 
