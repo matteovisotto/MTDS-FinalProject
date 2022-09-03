@@ -48,6 +48,7 @@ public class Stats {
                 .option("delimiter", ";")
                 .option("dateFormat","dd/MM/yyyy HH:mm:ss")
                 .schema(mySchema)
+                //.csv(filePath + "../DataOut/DB.csv");
                 .csv(filePath + "../DataOut/dataset.csv");
 
         dataset = dataset.withColumn("neighborhood",split(col("location"),"[.]").getItem(0))
@@ -213,8 +214,11 @@ public class Stats {
                 .withColumn("temp_diff", bround(expr("day_temp-night_temp"), 2))
                 .withColumn("hum_diff", bround(expr("day_hum-night_hum"), 2));
         diffRoom.cache();
-        diffRoom.show();
-        writeToCsv(diffRoom, "diffRoom");
+
+        if (!diffRoom.isEmpty()){
+            diffRoom.show();
+            writeToCsv(diffRoom, "diffRoom");
+        }
 
 
 
@@ -252,8 +256,12 @@ public class Stats {
                 .withColumn("temp_diff", bround(expr("day_temp-night_temp"), 2))
                 .withColumn("hum_diff", bround(expr("day_hum-night_hum"), 2));
         diffFloor.cache();
-        diffFloor.show();
-        writeToCsv(diffFloor, "diffFloor");
+
+        if (!diffFloor.isEmpty()){
+            diffFloor.show();
+            writeToCsv(diffFloor, "diffFloor");
+        }
+
 
 
 
@@ -291,8 +299,11 @@ public class Stats {
                 .withColumn("temp_diff", bround(expr("day_temp-night_temp"), 2))
                 .withColumn("hum_diff", bround(expr("day_hum-night_hum"), 2));
         diffBuilding.cache();
-        diffBuilding.show();
-        writeToCsv(diffBuilding, "diffBuilding");
+
+        if (!diffBuilding.isEmpty()) {
+            diffBuilding.show();
+            writeToCsv(diffBuilding, "diffBuilding");
+        }
 
 
 
@@ -330,99 +341,109 @@ public class Stats {
                 .withColumn("temp_diff", bround(expr("day_temp-night_temp"), 2))
                 .withColumn("hum_diff", bround(expr("day_hum-night_hum"), 2));
         diffNeighborhood.cache();
-        diffNeighborhood.show();
-        writeToCsv(diffNeighborhood, "diffNeighborhood");
+
+        if (!diffNeighborhood.isEmpty()) {
+            diffNeighborhood.show();
+            writeToCsv(diffNeighborhood, "diffNeighborhood");
+        }
 
 
 
 
 
-        //Month of the year with higher average night-day temperature difference - Room
-        final Dataset<Row> avgMonthRoom = diffRoom.withColumn("month", month(col("day"))).groupBy("month")
-                .agg(
-                        avg("temp_diff").as("temp"),
-                        avg("hum_diff").as("hum")
-                )
-                .orderBy("month");
-        avgMonthRoom.cache();
-        //avgMonthRoom.show();
+        if (!diffRoom.isEmpty()) {
+            //Month of the year with higher average night-day temperature difference - Room
+            final Dataset<Row> avgMonthRoom = diffRoom.withColumn("month", month(col("day"))).groupBy("month")
+                    .agg(
+                            avg("temp_diff").as("temp"),
+                            avg("hum_diff").as("hum")
+                    )
+                    .orderBy("month");
+            avgMonthRoom.cache();
+            //avgMonthRoom.show();
 
-        //No more used, so removed from cache
-        diffRoom.unpersist();
+            //No more used, so removed from cache
+            diffRoom.unpersist();
 
-        final Dataset<Row> maxMonthRoom = avgMonthRoom
-                .select(col("month"), col("temp"))
-                .where(col("temp").equalTo(avgMonthRoom.select(max("temp")).first().getDouble(0)))
-                .withColumn("temp", bround(col("temp"), 2));
-        maxMonthRoom.show();
-        writeToCsv(maxMonthRoom, "maxMonthRoom");
-
-
-
-        //Month of the year with higher average night-day temperature difference - Building Level
-        final Dataset<Row> avgMonthFloor = diffFloor.withColumn("month", month(col("day"))).groupBy("month")
-                .agg(
-                        avg("temp_diff").as("temp"),
-                        avg("hum_diff").as("hum")
-                )
-                .orderBy("month");
-        avgMonthFloor.cache();
-        //avgMonthFloor.show();
-
-        //No more used, so removed from cache
-        diffFloor.unpersist();
-
-        final Dataset<Row> maxMonthFloor = avgMonthFloor
-                .select(col("month"), col("temp"))
-                .where(col("temp").equalTo(avgMonthFloor.select(max("temp")).first().getDouble(0)))
-                .withColumn("temp", bround(col("temp"), 2));
-        maxMonthFloor.show();
-        writeToCsv(maxMonthFloor, "maxMonthFloor");
+            final Dataset<Row> maxMonthRoom = avgMonthRoom
+                    .select(col("month"), col("temp"))
+                    .where(col("temp").equalTo(avgMonthRoom.select(max("temp")).first().getDouble(0)))
+                    .withColumn("temp", bround(col("temp"), 2));
+            maxMonthRoom.show();
+            writeToCsv(maxMonthRoom, "maxMonthRoom");
+        }
 
 
 
-        //Month of the year with higher average night-day temperature difference - Building
-        final Dataset<Row> avgMonthBuilding = diffBuilding.withColumn("month", month(col("day"))).groupBy("month")
-                .agg(
-                        avg("temp_diff").as("temp"),
-                        avg("hum_diff").as("hum")
-                )
-                .orderBy("month");
-        avgMonthBuilding.cache();
-        //avgMonthBuilding.show();
+        if (!diffFloor.isEmpty()) {
+            //Month of the year with higher average night-day temperature difference - Building Level
+            final Dataset<Row> avgMonthFloor = diffFloor.withColumn("month", month(col("day"))).groupBy("month")
+                    .agg(
+                            avg("temp_diff").as("temp"),
+                            avg("hum_diff").as("hum")
+                    )
+                    .orderBy("month");
+            avgMonthFloor.cache();
+            //avgMonthFloor.show();
 
-        //No more used, so removed from cache
-        diffBuilding.unpersist();
+            //No more used, so removed from cache
+            diffFloor.unpersist();
 
-        final Dataset<Row> maxMonthBuilding = avgMonthBuilding
-                .select(col("month"), col("temp"))
-                .where(col("temp").equalTo(avgMonthBuilding.select(max("temp")).first().getDouble(0)))
-                .withColumn("temp", bround(col("temp"), 2));
-        maxMonthBuilding.show();
-        writeToCsv(maxMonthBuilding, "maxMonthBuilding");
+            final Dataset<Row> maxMonthFloor = avgMonthFloor
+                    .select(col("month"), col("temp"))
+                    .where(col("temp").equalTo(avgMonthFloor.select(max("temp")).first().getDouble(0)))
+                    .withColumn("temp", bround(col("temp"), 2));
+            maxMonthFloor.show();
+            writeToCsv(maxMonthFloor, "maxMonthFloor");
+        }
 
 
 
-        //Month of the year with higher average night-day temperature difference - Neighborhood-scale
-        final Dataset<Row> avgMonthNeighborhood = diffNeighborhood.withColumn("month", month(col("day"))).groupBy("month")
-                .agg(
-                        avg("temp_diff").as("temp"),
-                        avg("hum_diff").as("hum")
-                )
-                .orderBy("month");
-        avgMonthNeighborhood.cache();
-        //avgMonthNeighborhood.show();
+        if (!diffBuilding.isEmpty()) {
+            //Month of the year with higher average night-day temperature difference - Building
+            final Dataset<Row> avgMonthBuilding = diffBuilding.withColumn("month", month(col("day"))).groupBy("month")
+                    .agg(
+                            avg("temp_diff").as("temp"),
+                            avg("hum_diff").as("hum")
+                    )
+                    .orderBy("month");
+            avgMonthBuilding.cache();
+            //avgMonthBuilding.show();
 
-        //No more used, so removed from cache
-        diffNeighborhood.unpersist();
+            //No more used, so removed from cache
+            diffBuilding.unpersist();
 
-        final Dataset<Row> maxMonthNeighborhood = avgMonthNeighborhood
-                .select(col("month"), col("temp"))
-                .where(col("temp").equalTo(avgMonthNeighborhood.select(max("temp")).first().getDouble(0)))
-                .withColumn("temp", bround(col("temp"), 2));
-        maxMonthNeighborhood.show();
-        writeToCsv(maxMonthNeighborhood, "maxMonthNeighborhood");
+            final Dataset<Row> maxMonthBuilding = avgMonthBuilding
+                    .select(col("month"), col("temp"))
+                    .where(col("temp").equalTo(avgMonthBuilding.select(max("temp")).first().getDouble(0)))
+                    .withColumn("temp", bround(col("temp"), 2));
+            maxMonthBuilding.show();
+            writeToCsv(maxMonthBuilding, "maxMonthBuilding");
+        }
 
+
+
+        if (!diffNeighborhood.isEmpty()) {
+            //Month of the year with higher average night-day temperature difference - Neighborhood-scale
+            final Dataset<Row> avgMonthNeighborhood = diffNeighborhood.withColumn("month", month(col("day"))).groupBy("month")
+                    .agg(
+                            avg("temp_diff").as("temp"),
+                            avg("hum_diff").as("hum")
+                    )
+                    .orderBy("month");
+            avgMonthNeighborhood.cache();
+            //avgMonthNeighborhood.show();
+
+            //No more used, so removed from cache
+            diffNeighborhood.unpersist();
+
+            final Dataset<Row> maxMonthNeighborhood = avgMonthNeighborhood
+                    .select(col("month"), col("temp"))
+                    .where(col("temp").equalTo(avgMonthNeighborhood.select(max("temp")).first().getDouble(0)))
+                    .withColumn("temp", bround(col("temp"), 2));
+            maxMonthNeighborhood.show();
+            writeToCsv(maxMonthNeighborhood, "maxMonthNeighborhood");
+        }
 
 
         spark.close();
