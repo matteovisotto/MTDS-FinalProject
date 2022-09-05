@@ -112,7 +112,7 @@ public class Stats {
         final Dataset<Row> movingAverageTemperatureAndHumidityDaily = dataset
                 .select(col("fullRoomLocation"), col("fullBuildingLocation"), col("fullFloorLocation"), col("neighborhood"), col("dateTime"), col("temperature"), col("humidity"));
 
-        movingAverageTemperatureAndHumidityHour.cache();
+        movingAverageTemperatureAndHumidityDaily.cache();
         movingAverageTemperatureAndHumidityDaily.createOrReplaceTempView("dailyMovingAverage");
 
         Dataset<Row> movingAverageTemperatureAndHumidityDailyRoom = spark.sql("SELECT fullRoomLocation, dateTime, avg(temperature) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_temp, avg(humidity) OVER (PARTITION BY fullRoomLocation ORDER BY CAST(dateTime AS timestamp) RANGE BETWEEN INTERVAL 1 DAY PRECEDING AND CURRENT ROW) AS avg_hum FROM dailyMovingAverage");
@@ -205,9 +205,6 @@ public class Stats {
                 .withColumn("night_temp", bround(col("night_temp"), 2))
                 .withColumn("night_hum", bround(col("night_hum"), 2));
 
-        //No more used, so removed from cache
-        meanDailyRoom.unpersist();
-
         final Dataset<Row> diffRoom = dailyRoom.join(nightRoom, nightRoom.col("fl").equalTo(dailyRoom.col("fullRoomLocation")).and(nightRoom.col("d").equalTo(dailyRoom.col("day"))), "left_outer")
                 .filter(col("d").isNotNull())
                 .drop("daily", "d", "fl")
@@ -246,9 +243,6 @@ public class Stats {
                 .withColumnRenamed("avg_hum", "night_hum")
                 .withColumn("night_temp", bround(col("night_temp"), 2))
                 .withColumn("night_hum", bround(col("night_hum"), 2));
-
-        //No more used, so removed from cache
-        meanDailyFloor.unpersist();
 
         final Dataset<Row> diffFloor = dailyFloor.join(nightFloor, nightFloor.col("fl").equalTo(dailyFloor.col("fullFloorLocation")).and(nightFloor.col("d").equalTo(dailyFloor.col("day"))), "left_outer")
                 .filter(col("d").isNotNull())
@@ -290,9 +284,6 @@ public class Stats {
                 .withColumn("night_temp", bround(col("night_temp"), 2))
                 .withColumn("night_hum", bround(col("night_hum"), 2));
 
-        //No more used, so removed from cache
-        meanDailyBuilding.unpersist();
-
         final Dataset<Row> diffBuilding = dailyBuilding.join(nightBuilding, nightBuilding.col("fl").equalTo(dailyBuilding.col("fullBuildingLocation")).and(nightBuilding.col("d").equalTo(dailyBuilding.col("day"))), "left_outer")
                 .filter(col("d").isNotNull())
                 .drop("daily", "d", "fl")
@@ -332,9 +323,6 @@ public class Stats {
                 .withColumn("night_temp", bround(col("night_temp"), 2))
                 .withColumn("night_hum", bround(col("night_hum"), 2));
 
-        //No more used, so removed from cache
-        meanDailyNeighborhood.unpersist();
-
         final Dataset<Row> diffNeighborhood = dailyNeighborhood.join(nightNeighborhood, nightNeighborhood.col("fl").equalTo(dailyNeighborhood.col("neighborhood")).and(nightNeighborhood.col("d").equalTo(dailyNeighborhood.col("day"))), "left_outer")
                 .filter(col("d").isNotNull())
                 .drop("daily", "d", "fl")
@@ -362,15 +350,18 @@ public class Stats {
             avgMonthRoom.cache();
             //avgMonthRoom.show();
 
-            //No more used, so removed from cache
-            diffRoom.unpersist();
-
             final Dataset<Row> maxMonthRoom = avgMonthRoom
                     .select(col("month"), col("temp"))
                     .where(col("temp").equalTo(avgMonthRoom.select(max("temp")).first().getDouble(0)))
                     .withColumn("temp", bround(col("temp"), 2));
             maxMonthRoom.show();
             writeToCsv(maxMonthRoom, "maxMonthRoom");
+
+            //No more used, so removed from cache
+            maxMonthRoom.unpersist();
+            avgMonthRoom.unpersist();
+            diffRoom.unpersist();
+            meanDailyRoom.unpersist();
         }
 
 
@@ -395,6 +386,12 @@ public class Stats {
                     .withColumn("temp", bround(col("temp"), 2));
             maxMonthFloor.show();
             writeToCsv(maxMonthFloor, "maxMonthFloor");
+
+            //No more used, so removed from cache
+            maxMonthFloor.unpersist();
+            avgMonthFloor.unpersist();
+            diffFloor.unpersist();
+            meanDailyFloor.unpersist();
         }
 
 
@@ -410,15 +407,18 @@ public class Stats {
             avgMonthBuilding.cache();
             //avgMonthBuilding.show();
 
-            //No more used, so removed from cache
-            diffBuilding.unpersist();
-
             final Dataset<Row> maxMonthBuilding = avgMonthBuilding
                     .select(col("month"), col("temp"))
                     .where(col("temp").equalTo(avgMonthBuilding.select(max("temp")).first().getDouble(0)))
                     .withColumn("temp", bround(col("temp"), 2));
             maxMonthBuilding.show();
             writeToCsv(maxMonthBuilding, "maxMonthBuilding");
+
+            //No more used, so removed from cache
+            maxMonthBuilding.unpersist();
+            avgMonthBuilding.unpersist();
+            diffBuilding.unpersist();
+            meanDailyBuilding.unpersist();
         }
 
 
@@ -434,17 +434,21 @@ public class Stats {
             avgMonthNeighborhood.cache();
             //avgMonthNeighborhood.show();
 
-            //No more used, so removed from cache
-            diffNeighborhood.unpersist();
-
             final Dataset<Row> maxMonthNeighborhood = avgMonthNeighborhood
                     .select(col("month"), col("temp"))
                     .where(col("temp").equalTo(avgMonthNeighborhood.select(max("temp")).first().getDouble(0)))
                     .withColumn("temp", bround(col("temp"), 2));
             maxMonthNeighborhood.show();
             writeToCsv(maxMonthNeighborhood, "maxMonthNeighborhood");
+
+            //No more used, so removed from cache
+            maxMonthNeighborhood.unpersist();
+            avgMonthNeighborhood.unpersist();
+            diffNeighborhood.unpersist();
+            meanDailyNeighborhood.unpersist();
         }
 
+        dataset.unpersist();
 
         spark.close();
 
@@ -456,14 +460,6 @@ public class Stats {
                 .mode(SaveMode.Overwrite)
                 .option("header", true)
                 .option("delimiter", ";")
-                //Da un problema quando HH:mm:ss == 00:00:00
-                //.option("dateFormat","dd/MM/yyyy HH:mm:ss")
                 .csv("../Stats/" + path);
-
-        /*SparkContext sc = spark.sparkContext();
-        FileSystem fs = FileSystem.get(sc.hadoopConfiguration());
-        String file = fs.globStatus(new Path("../Stats/part"))[0].getPath().getName();
-
-        fs.rename(new Path("../Stats/" + file), new Path("../Stats/" + name));*/
     }
 }
