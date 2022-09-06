@@ -1,5 +1,0 @@
-ubuntu
-cd ../../mnt/f/OpenMPI/middleware_MPI_tutorial/output
-mpicc ./../src/word_count.c -o word_count
-mpirun ./word_count
-pause
