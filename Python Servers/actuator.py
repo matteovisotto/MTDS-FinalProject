@@ -4,7 +4,7 @@ import paho.mqtt.client as mqtt
 import json
 import requests
 
-BROKER = "server.matmacsystem.it"
+BROKER = "test.mosquitto.org"
 PORT = 1883
 TOPIC = "mtds/sensor/data/"
 
@@ -21,7 +21,7 @@ global init_location
 init_location = "#"
 
 def send_telegram_notification(text):
-    requests.get('https://api.telegram.org/bot5456641962:AAEzqKwRheRBsig65-4fjFd8ri2KbXWr_x4/sendMessage?chat_id=-781132811&text='+text)
+    #requests.get('https://api.telegram.org/bot5456641962:AAEzqKwRheRBsig65-4fjFd8ri2KbXWr_x4/sendMessage?chat_id=-781132811&text='+text)
 
 
 def print_init_state(val):
